@@ -5,6 +5,8 @@ const cors = require('cors');
 const app = express();
 const dns = require('dns');
 
+let INVALID_SHORT_URL_NUMBER = -1;
+
 let urlMap = {};
 let shortUrl = 0;
 
@@ -26,11 +28,17 @@ app.get('/api/hello', function(req, res) {
 });
 
 app.post('/api/shorturl', function (req, res, next) {
-  let originalUrl = req.body.url;
-  dns.lookup(originalUrl, (err) => {
-    req.shortUrl = err ? -1 : shortUrl;
+  let originalUrl = "";
+  try {
+    originalUrl = new URL(req.body.url);
+  } catch (e) {
+    req.shortUrl = INVALID_SHORT_URL_NUMBER;
+    next();
+  }
+  dns.lookup(originalUrl.hostname, (err) => {
+    req.shortUrl = err ? INVALID_SHORT_URL_NUMBER : shortUrl;
     if(!err) {
-      urlMap[`${shortUrl}`] = originalUrl;
+      urlMap[`${shortUrl}`] = originalUrl.toString();
       shortUrl++;
     }
     next();
@@ -43,7 +51,7 @@ app.post('/api/shorturl', function (req, res, next) {
 app.get('/api/shorturl/:shortUrl', function(req, res){
   let reqShortUrl = req.params.shortUrl;
   let originalUrl = urlMap[reqShortUrl];
-  res.redirect('https://' + originalUrl);
+  res.redirect(originalUrl);
 });
 
 app.listen(port, function() {
